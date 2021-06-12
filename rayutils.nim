@@ -1,4 +1,6 @@
-import raylib, math, hashes, sugar, macros, strutils, lenientops, sequtils, algorithm
+import raylib, math, hashes, sugar, macros, strutils, lenientops, sequtils, algorithm, random
+
+randomize()
 
 template BGREY*() : auto = makecolor("242424", 255)
 template OFFWHITE*() : auto = makecolor(235, 235, 235)
@@ -129,7 +131,7 @@ proc int2bin*(i : int) : int =
 func makerect*(v, v2, v3, v4 : Vector2) : Rectangle = ## Doesn't check that your points can form a rectangle
     Rectangle(x : v.x, y : v.y, width : v2.x - v.x, height : v3.y - v2.y)
 
-func makerect*(x, y, w, h : int) : Rectangle =
+func makerect*(x: int | float | float32, y : int | float | float32, w : int | float | float32, h : int | float | float32) : Rectangle =
     Rectangle(x : float x, y : float y, width : float w, height : float h)
 
 func `in`*(v : Vector2, r : Rectangle) : bool =
@@ -377,3 +379,9 @@ iterator pairs*(tri : Triangle) : (int, Vector2) =
     yield (0, tri.v1)
     yield (0, tri.v2)
     yield (0, tri.v3)
+
+proc shuffleIt*[T](s : seq[T]) : seq[T] =
+    var s = s; shuffle s; return s
+
+proc shuffleIt*[N, T](s : array[N, T]) : array[N, T] =
+    var s = s; shuffle s; return s
