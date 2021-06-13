@@ -8,11 +8,18 @@ InitWindow screenWidth, screenHeight, "Puzzler"
 SetTargetFPS 60
 randomize()
 
+InitAudioDevice()
+SetMasterVolume 1
+
+let
+    musicArr = [LoadMusicStream "./assets/Into the Gray.mp3", LoadMusicStream "./assets/Prisoner of Rock N Roll.mp3", LoadMusicStream "Shuffle Street.mp3"]
+
 var
     imgarr = [LoadTexture "./assets/johnBrownBibleAndGun.png", LoadTexture "./assets/DonaldRonaldRe[a]gan.png", LoadTexture "./assets/NewBrazil.png"]
     imgid = 2
     image = imgarr[imgid]
     imgidban = @[imgid]
+
 
 proc splitImage(t : Texture) : seq[Rectangle] =
     let drawpos = makevec2(0, 0)
@@ -81,6 +88,9 @@ var
     shown = false
     showntimer : int
     isSolved : bool
+    musicid = -1
+    waiting = true
+    waittime : int
 
 for i in 0..<solved.len:
     if solved[i] != mixed[i]:
@@ -88,6 +98,14 @@ for i in 0..<solved.len:
 
 while not WindowShouldClose():
     ClearBackground BGREY
+            
+    if not musicArr.mapIt(IsMusicPlaying it).foldl(a or b):
+        var inx = rand(musicArr.len - 1)
+        while inx == musicid:
+           inx = rand(musicArr.len - 1)
+        PlayMusicStream musicArr[inx] 
+
+    musicArr.iterIt(UpdateMusicStream it)
 
     BeginDrawing()
 
@@ -100,7 +118,7 @@ while not WindowShouldClose():
         if showntimer >= 250:
             shown = true
             showntimer = 0
-        showntimer += 1
+        if not waiting: showntimer += 1
         if mixed == solved: 
             isSolved = true
             if IsKeyPressed(KEY_SPACE):
@@ -147,6 +165,14 @@ while not WindowShouldClose():
         drawTextCenteredX "Congratualations!", screenWidth div 2, screenHeight - 160, 50, WHITE
         drawTextCenteredX "Press Space to continue", screenWidth div 2, screenHeight - 100, 50, WHITE
 
+    if waiting:
+        if waittime >= 255:
+            waiting = false
+            waittime = 0
+        else:
+            echo 255 - waittime
+            DrawRectangle(0, 0, screenWidth, screenHeight, makecolor(BGREY.r, BGREY.g, BGREY.b, uint8 255 - waittime))
+            waittime += 1
 
     EndDrawing()
 CloseWindow()
