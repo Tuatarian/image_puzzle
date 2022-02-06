@@ -2,19 +2,31 @@ import raylib, math, hashes, sugar, macros, strutils, lenientops, sequtils, algo
 
 randomize()
 
-template BGREY*() : auto = makecolor("242424", 255)
+template BGREY*() : auto = makecolor("111111", 255)
+template AGREY*() : auto = makecolor("222222", 255)
 template OFFWHITE*() : auto = makecolor(235, 235, 235)
+template LEMMIRED*() : auto = makecolor("F32A2A")
+template WHITEE*() : auto = makecolor("EEEEEE", 255)
+template WHITED*() : auto = makecolor("DDDDDD", 255)
+template CLEAR*() : auto = makecolor(0, 0, 0, 0)
 
 type Triangle* = object
     v1* : Vector2
     v2* : Vector2
     v3* : Vector2
 
+type Circle* = object
+    rad : float
+    center : Vector2
+
 func makecolor*(f, d, l : int | float | uint8, o : uint8 = 255) : Color = ## Easy color constructor
     return Color(r : uint8 f, g : uint8 d, b : uint8 l, a : uint8 o)
 
 func makecolor*(s : string, alp : uint8 = 255) : Color =
     return makecolor(fromHex[uint8]($s[0..1]), fromHex[uint8]($s[2..3]), fromHex[uint8]($s[4..5]), alp)
+
+func colHex*(c : Color) : string =
+    c.r.toHex & c.g.toHex & c.b.toHex
 
 func makevec2*(x, y: float | float32 | int) : Vector2 =  ## Easy vec2 constructor
     Vector2(x : float x, y : float y)
@@ -27,7 +39,7 @@ template iterIt*(s, op : untyped) : untyped =
         let it {.inject.} = s[i]
         op
 
-const colorArr* : array[27, Color] = [LIGHTGRAY, GRAY, DARKGRAY, YELLOW, GOLD, ORANGE, PINK, RED, MAROON, GREEN, LIME, DARKGREEN, SKYBLUE, BLUE, DARKBLUE, PURPLE, VIOLET, DARKPURPLE, BEIGE, BROWN, DARKBROWN, WHITE, BLACK, MAGENTA, RAYWHITE, BGREY, OFFWHITE] ## Array of all rl colours
+const colorArr* : array[27, Color] = [LIGHTGRAY, GRAY, DARKGRAY, YELLOW, GOLD, ORANGE, PINK, RED, MAROON, GREEN, LIME, DARKGREEN, SKYBLUE, BLUE, DARKBLUE, PURPLE, VIOLET, DARKPURPLE, BEIGE, BROWN, DARKBROWN, WHITE, BGREY, MAGENTA, RAYWHITE, BGREY, OFFWHITE] ## Array of all rl colours
 
 func `+`*(v, v2 : Vector2) : Vector2 =
     result.x = v.x + v2.x
@@ -66,9 +78,16 @@ func `/`*(v, : Vector2, i : int) : Vector2 =
 func `/=`*[T](v : var Vector2, t : T) =
     v = v / t
 
-func `div`*(v, : Vector2, f : float) : Vector2 =
+func mag*(v : Vector2) : float =
+    sqrt(v.x^2 + v.y^2)
+
+func `div`*(v : Vector2, f : float) : Vector2 =
     result.x = ceil(v.x / f)
     result.y = ceil(v.y / f)
+
+func `div`*(v, v2 : Vector2) : Vector2 =
+    result.x = ceil(v.x / v2.x)
+    result.y = ceil(v.y / v2.y)
 
 func `div`*(v, : Vector2, i : int) : Vector2 =
     result.x = float v.x.int div i
@@ -98,11 +117,20 @@ func `*`*(v : Vector2, mat : seq[seq[int]] | seq[seq[float]]) : Vector2 = ## Req
         d = mat[1, 1]
     return makevec2((x * a) + (y * c), (x * b) + (y * d))
 
-func getRotMat*(th : int | float) : seq[seq[int]] | seq[seq[float]] =
+func getRotMat*(th : int | float) : seq[seq[int]] | seq[seq[float]] = # Get Rotation Matrix, Radians
     return @[@[cos th, -sin th], @[sin th, cos th]]
 
 func `<|`*(v : Vector2, n : float32 | int | float) : bool = ## True if either x or y < x2 or y2
     return v.x < n or v.y < n
+
+func `<|`*(v, v2 : Vector2) : bool = ## True if either x or y < x2 or y2
+    return v.x < v2.x or v.y < v2.y
+
+func `|>`*(v : Vector2, n : float32 | int | float) : bool = ## True if either x or y > x2 or y2
+    return v.x > n or v.y > n
+
+func `|>`*(v, v2 : Vector2) : bool = ## True if either x or y > x2 or y2
+    return v.x > v2.x or v.y > v2.y
 
 func `<&`*(v : Vector2, n : float32 | int | float) : bool = ## True if both x and y < x2 and y2
     return v.x < n and v.y < n
@@ -110,13 +138,23 @@ func `<&`*(v : Vector2, n : float32 | int | float) : bool = ## True if both x an
 func `<&`*(v : Vector2, v2 : Vector2) : bool = ## True if both x and y < x2 and y2
     return v.x < v2.x and v.y < v2.y
 
+func `&>`*(v : Vector2, n : float32 | int | float) : bool = ## True if both x and y > x2 and y2
+    return v.x < n and v.y < n
+
+func `&>`*(v : Vector2, v2 : Vector2) : bool = ## True if both x and y > x2 and y2
+    return v.x > v2.x and v.y > v2.y
+
 func drawTextCentered*(s : string, x, y, fsize : int, colour : Color) =
-    let tSizeVec = MeasureTextEx(GetFontDefault(), s, float fsize, max(10,fsize) / 20) div 2
+    let tSizeVec = MeasureTextEx(GetFontDefault(), s, float fsize, max(20 ,fsize ) / 20) div 2 # max(20, fsize) is black box to me
     DrawText s, x - tSizeVec.x.int, y - tSizeVec.y.int, fsize, colour
 
 func drawTextCenteredX*(s : string, x, y, fsize : int, colour : Color) =
     let tSizeVec = MeasureTextEx(GetFontDefault(), s, float fsize, max(20,fsize) / 10) div 2
     DrawText s, x - tSizeVec.x.int, y, fsize, colour
+
+func drawTextCenteredY*(s : string, x, y, fsize : int, colour : Color) =
+    let tSizeVec = MeasureTextEx(GetFontDefault(), s, float fsize, max(20 ,fsize ) / 20) div 2 # max(20, fsize) is black box to me
+    DrawText s, x, y - tSizeVec.y.int, fsize, colour
 
 proc int2bin*(i : int) : int =
     var i = i
@@ -174,7 +212,7 @@ func toTuple*(v : Vector2) : (float32, float32) = ## Returns (x, y)
 func min*(v, v2 : Vector2) : Vector2 = ## Returns min of x and min of y 
     return makevec2(min(v.x, v2.x), min(v.y, v2.y))
 
-func min*[T](args : varargs[T]) : T =
+func minVargs*[T](args : varargs[T]) : T =
     var lastmin : T
     for i in args:
         if i < lastmin:
@@ -184,7 +222,7 @@ func min*[T](args : varargs[T]) : T =
 func max*(v, v2 : Vector2) : Vector2 = ## Returns max of x and max of y
     return makevec2(max(v.x, v2.x), max(v.y, v2.y))
 
-func max*[T](args : varargs[T]) : T =
+func maxVargs*[T](args : varargs[T]) : T =
     var lastmax : T
     for i in args:
         if i > lastmax:
@@ -256,7 +294,7 @@ func reflect*(v : Vector2, tp : int | float) : Vector2 =
 func abs*(v : Vector2) : Vector2 =
     return makevec2(abs v.x, abs v.y)
 
-func cart2Polar*(v : Vector2, c = Vector2(x : 0, y : 0)) : Vector2 = ## Untested
+func cart2Polar*(v : Vector2, c = Vector2(x : 0, y : 0)) : Vector2 = ## Untested, possible edge cases
     let v = v - c
     result.x = sqrt((v.x ^ 2) + (v.y ^ 2)) 
     result.y = arctan(v.y / v.x)
@@ -279,7 +317,29 @@ proc hash*(v : Vector2) : Hash = ## Hash for vec2
     h = h !& hash v.y
     result = !$h
 
-proc drawTriangleFan*(verts : openArray[Vector2], color : Color) = ## Probably inefficient convex polygon renderer
+# proc drawTriangleFan*(verts : openArray[Vector2], color : Color) = ## Probably inefficient convex polygon renderer
+#     var inpoint : Vector2
+#     var mutverts : seq[Vector2]
+# 
+#     for v in verts: 
+#         inpoint = inpoint + v
+#         mutverts.add(v)
+#     
+#     inpoint = inpoint / float verts.len
+#     mutverts.add(verts[0])
+# 
+#     for i in 1..<mutverts.len:
+#         var points = [inpoint, mutverts[i - 1], mutverts[i]]
+#         var ininpoint = (points[0] + points[1] + points[2]) / 3
+#         var polarpoints = [cart2Polar(points[0], ininpoint), cart2Polar(points[1], ininpoint), cart2Polar(points[2], ininpoint)]
+#         for j in 0..points.len:
+#             for k in 0..<points.len - 1 - j:
+#                 if polarpoints[k].y > polarpoints[k + 1].y:
+#                     swap(polarpoints[k], polarpoints[k + 1])
+#                     swap(points[k], points[k + 1])
+#         DrawTriangle(points[0], points[1], points[2], color)
+
+proc drawTriangleFan*(verts : varargs[Vector2], color : Color) = ## Probably inefficient convex polygon renderer
     var inpoint : Vector2
     var mutverts : seq[Vector2]
 
@@ -316,16 +376,6 @@ func drawTexCenteredFromGrid*(tex : Texture, posx, posy : int, tilesize : int, t
 func drawTexFromGrid*(tex : Texture, posx, posy : int, tilesize : int, tint : Color) =
     DrawTexture(tex, int posx * tilesize, int posy * tilesize, tint)
 
-func getNeighborTiles*[T](map : seq[seq[T]], y, x : int) : seq[T] =
-    if y < map.len - 1:
-        result.add map[y + 1, x]
-    if y > 0:
-        result.add map[y - 1, x]
-    if x < map[0].len - 1:
-        result.add map[y, x + 1]
-    if x > 0:
-        result.add map[y, x - 1]
-
 iterator spsplit*(s : string, key : char | string) : string =
     var result : string
     for c in s:
@@ -340,6 +390,11 @@ iterator spsplit*(s : string, key : char | string) : string =
 
 func DrawCircle*(centerX : float, centerY : float, radius : float, tint : Color) =
     DrawCircle int centerX, int centerY, radius, tint
+
+func drawLines*(pts : varargs[Vector2], col : Color) =
+    for i in 0..<pts.len - 1:
+        DrawLineV(pts[i], pts[i + 1], col)
+    DrawLineV(pts[^1], pts[0], col)
 
 func IsKeyDown*[N](k : array[N, KeyboardKey]) : bool =
     for key in k:
@@ -385,3 +440,25 @@ proc shuffleIt*[T](s : seq[T]) : seq[T] =
 
 proc shuffleIt*[N, T](s : array[N, T]) : array[N, T] =
     var s = s; shuffle s; return s
+
+iterator findAll*[T](s : openArray[T], val : T) : int =
+    for i, x in s:
+        if x == val:
+            yield i
+
+iterator findAll*[T](s : openArray[T], pred : (T) -> bool) : int =
+    for i, x in s:
+        if pred x:
+            yield i
+proc DrawTriangle*(t : Triangle, col : Color) =
+    DrawTriangle(t.v1, t.v2, t.v3, col)    
+
+# func delaunayBW*(pts : seq[Vector2], super : Triangle) : seq[Triangle] = ##Bowyer-Watson implementation, O(n^2), super = super triangle containing all points in pts
+#     result.add super
+#     for i in 0..<pts.len:
+#         var bad : seq[Triangle]
+#         # for j in 0..<result.len:
+
+            
+
+

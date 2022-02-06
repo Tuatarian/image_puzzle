@@ -1,8 +1,10 @@
-import raylib, raymath, rlgl, rayutils, math, lenientops, random, sequtils
+import raylib, raymath, rlgl, rayutils, math, lenientops, random, sequtils, os, algorithm
 
 const
     screenWidth = 1920
     screenHeight = 1080
+    screenCenter = makevec2(1920, 1080) / 2
+
 
 InitWindow screenWidth, screenHeight, "Puzzler"
 SetTargetFPS 60
@@ -12,21 +14,24 @@ InitAudioDevice()
 SetMasterVolume 1
 
 let
-    musicArr = [LoadMusicStream "./assets/Into the Gray.mp3", LoadMusicStream "./assets/Prisoner of Rock N Roll.mp3", LoadMusicStream "Shuffle Street.mp3"]
+    musicArr = [LoadMusicStream "./assets/Into the Gray.mp3", LoadMusicStream "./assets/Prisoner of Rock N Roll.mp3", LoadMusicStream "./assets/Shuffle Street.mp3"]
+    folders = toSeq(walkDir("assets", relative=true)).filterIt(it.kind == pcDir)
+
+proc LoadImgs(folder : string) : seq[Texture] = toSeq(folder.walkDir(relative = true)).mapIt("assets/classic/" & it.path).filterIt(it[^4..^1] == ".png").sorted(Ascending).mapIt(LoadTexture it)
 
 var
-    imgarr = [LoadTexture "./assets/johnBrownBibleAndGun.png", LoadTexture "./assets/DonaldRonaldRe[a]gan.png", LoadTexture "./assets/NewBrazil.png"]
+    imgarr = LoadImgs "assets/classic"
     imgid = 2
     image = imgarr[imgid]
     imgidban = @[imgid]
+    fsScreen = true
 
-
-proc splitImage(t : Texture) : seq[Rectangle] =
+proc splitImage(t : Texture, x : int = 8, y : int = 5) : seq[Rectangle] = ## 8x5 is generally reasonable
     let drawpos = makevec2(0, 0)
     # DrawRectangleLines(int drawpos.x, int drawpos.y, t.width, t.height, WHITE)
 
-    let sqy = int(t.height / 5)
-    let sqx = int(t.width / 8)
+    let sqy = int(t.height / y)
+    let sqx = int(t.width / x)
     let marginy = t.height mod sqy.int
     let marginx = t.width mod sqx.int 
     var loc = drawpos
@@ -79,10 +84,10 @@ proc drawRecArray(t : Texture, s : seq[Rectangle], c : seq[Color]) =
                     DrawRectangleLines(roundToInt loc.x, loc.y.int + sqy * i, sqx + marginx, sqy + marginy, c[iters * 5 + i])
             loc.x += sqx.float + marginx
             iters += 1
-        
+
 var 
-    solved = splitImage image
-    mixed = shuffleIt solved
+    solved : seq[Rectangle]
+    mixed : seq[Rectangle]
     sqcols = newSeqWith(mixed.len, WHITE)
     held = -1
     shown = false
@@ -92,87 +97,113 @@ var
     waiting = true
     waittime : int
 
-for i in 0..<solved.len:
-    if solved[i] != mixed[i]:
-        echo solved[i], " / ", mixed[i]
-
 while not WindowShouldClose():
     ClearBackground BGREY
-            
+
     if not musicArr.mapIt(IsMusicPlaying it).foldl(a or b):
+        musicArr.iterIt StopMusicStream it
         var inx = rand(musicArr.len - 1)
         while inx == musicid:
-           inx = rand(musicArr.len - 1)
-        PlayMusicStream musicArr[inx] 
+            inx = rand(musicArr.len - 1)
+            PlayMusicStream musicArr[inx]
+            musicid = inx
 
     musicArr.iterIt(UpdateMusicStream it)
 
-    BeginDrawing()
+    if fsScreen:
+        BeginDrawing()
 
-    if mixed != solved and shown:
-        drawRecArray(image, mixed, sqcols)
-    else:
-        drawTexCentered(image, makevec2(screenWidth / 2, screenHeight / 2), WHITE)
-        let drawpos = makevec2(int(screenWidth / 2 - image.width / 2), int(screenHeight / 2 - image.height / 2))
-        DrawRectangleLines(drawpos.x.int - 1, drawpos.y.int - 1, image.width + 2, image.height + 2, WHITE)
-        if showntimer >= 250:
-            shown = true
-            showntimer = 0
-        if not waiting: showntimer += 1
-        if mixed == solved: 
-            isSolved = true
-            if IsKeyPressed(KEY_SPACE):
-                while imgid in imgidban:
-                    imgid = rand(imgarr.len - 1)
-                imgidban.add imgid
-                isSolved = false
-                shown = false
-                image = imgarr[imgid]
-                solved = splitImage image
-                mixed = shuffleIt solved
+        drawTextCenteredX("Select Image Set", screenCenter.x.int, 60, 50, WHITEE)
+        let
+            mpos = GetMousePosition()
+            clicked = IsMouseButtonPressed(MOUSE_LEFT_BUTTON)
 
+        for i in 0..<min(folders.len, (screenHeight - 180) div 60):
+            let moused = mpos.in(makevec2(60, 120 + i*60), makevec2(screenWidth - 120, 120 + i*60), makevec2(screenWidth - 120, 120 + (i+1)*60), makevec2(60, 120 + (i+1)*60))
+            if moused: 
+                DrawRectangle(60, 120 + i*60, screenWidth - 120, 60, makecolor(WHITED.colHex(), 50))
+                if clicked: 
+                    imgarr = LoadImgs "assets/" & folders[i].path
+                    fsScreen = false
+            if i mod 2 == 0:
+                if not moused: DrawRectangle(60, 120 + i*60, screenWidth - 120, 60, AGREY)
+                drawTextCentered(folders[i].path, screenCenter.x.int, 120 + i*60 + 30, 40, WHITEE)
 
+        EndDrawing()
+        if not fsScreen:
+            imgid = 0
+            isSolved = false
+            shown = false
+            image = imgarr[imgid]
+            imgidban.add imgid
+            solved = splitImage image
+            mixed = shuffleIt solved
+            sqcols = newSeqWith(mixed.len, WHITE)
 
-    if IsMouseButtonPressed(MOUSE_LEFT_BUTTON):
-        let spos = GetMousePosition()
-        let marginx = (screenWidth - image.width) div 2
-        let marginy = (screenHeight - image.height) div 2
-        let indv = makevec2(int(spos.x - marginx) div (image.width div 8), int(spos.y - marginy) div (image.height div 5))
-        let ind = int(indv.x * 5 + indv.y)
-        if ind < 0 or ind > 39: held = -1
+    if not fsScreen:
+        BeginDrawing()
+
+        if mixed != solved and shown:
+            drawRecArray(image, mixed, sqcols)
         else:
-            if held == -1:
-                held = ind
-                sqcols[ind] = makecolor(0, 0, 0, 0)
+            drawTexCentered(image, makevec2(screenWidth / 2, screenHeight / 2), WHITE)
+            let drawpos = makevec2(int(screenWidth / 2 - image.width / 2), int(screenHeight / 2 - image.height / 2))
+            DrawRectangleLines(drawpos.x.int - 1, drawpos.y.int - 1, image.width + 2, image.height + 2, WHITE)
+            if showntimer >= 350:
+                shown = true
+                showntimer = 0
+            elif not waiting and not shown: showntimer += 1
+            if mixed == solved: 
+                isSolved = true
+                if IsKeyPressed(KEY_SPACE):
+                    imgidban.add imgid
+                    imgid += 1
+                    isSolved = false
+                    shown = false
+                    image = imgarr[imgid]
+                    solved = splitImage image
+                    mixed = shuffleIt solved
+                    sqcols = newSeqWith(mixed.len, WHITE)
+
+        if IsMouseButtonPressed(MOUSE_LEFT_BUTTON):
+            let spos = GetMousePosition()
+            let marginx = (screenWidth - image.width) div 2
+            let marginy = (screenHeight - image.height) div 2
+            let indv = makevec2(int(spos.x - marginx) div (image.width div 8), int(spos.y - marginy) div (image.height div 5))
+            let ind = int(indv.x * 5 + indv.y)
+            if ind < 0 or ind > 39: held = -1
             else:
-                swap(mixed[held], mixed[ind])
-                sqcols[held] = WHITE
-                held = -1
+                if held == -1:
+                    held = ind
+                    sqcols[ind] = makecolor(0, 0, 0, 0)
+                else:
+                    swap(mixed[held], mixed[ind])
+                    sqcols[held] = WHITE
+                    held = -1
 
-    # --- TEXT --- #
+        # --- TEXT --- #
 
-    if not shown:
-        drawTextCenteredX "Preview of image", screenWidth div 2, 100, 70, WHITE
-    else:
-        if imgid == 0:
-            drawTextCenteredX "John Brown, Antislavery crusader", screenWidth div 2, 100, 40, WHITE
-            drawTextCenteredX "This painting is part of the Tragic Prelude in Topeka,", screenWidth div 2, 150, 40, WHITE
-        if imgid == 1:
-            drawTextCenteredX "President Ronald and Treasury Secretary Donald Re(a)gan", screenWidth div 2, 100, 40, WHITE
-        if imgid == 2:
-            drawTextCenteredX "Original, but I am not the creator", screenWidth div 2, 100, 40, WHITE
-    if isSolved:
-        drawTextCenteredX "Congratualations!", screenWidth div 2, screenHeight - 160, 50, WHITE
-        drawTextCenteredX "Press Space to continue", screenWidth div 2, screenHeight - 100, 50, WHITE
-
-    if waiting:
-        if waittime >= 255:
-            waiting = false
-            waittime = 0
+        if not shown:
+            drawTextCenteredX "Preview of image", screenWidth div 2, 100, 70, WHITE
         else:
-            echo 255 - waittime
-            DrawRectangle(0, 0, screenWidth, screenHeight, makecolor(BGREY.r, BGREY.g, BGREY.b, uint8 255 - waittime))
-            waittime += 1
+            if imgid == 0:
+                drawTextCenteredX "John Brown, Antislavery crusader", screenWidth div 2, 100, 40, WHITE
+                drawTextCenteredX "This painting is part of the Tragic Prelude in Topeka,", screenWidth div 2, 150, 40, WHITE
+            if imgid == 1:
+                drawTextCenteredX "CKA3LA CTANA BBINBIO", screenWidth div 2, 100, 40, WHITE
+                drawTextCenteredX "The Fairtytale Became Truth (Yuri Gagarin)", screenWidth div 2, 150, 40, WHITE
+            if imgid == 2:
+                drawTextCenteredX "Ordem e Progresso", screenWidth div 2, 100, 40, WHITE
+        if isSolved:
+            drawTextCenteredX "Congratualations!", screenWidth div 2, screenHeight - 160, 50, WHITE
+            drawTextCenteredX "Press Space to continue", screenWidth div 2, screenHeight - 100, 50, WHITE
 
-    EndDrawing()
+        if waiting:
+            if waittime >= 255:
+                waiting = false
+                waittime = 0
+            else:
+                DrawRectangle(0, 0, screenWidth, screenHeight, makecolor(BGREY.r, BGREY.g, BGREY.b, uint8 255 - waittime))
+                waittime += 1
+        EndDrawing()
 CloseWindow()
