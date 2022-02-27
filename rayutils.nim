@@ -376,16 +376,13 @@ func drawTexCenteredFromGrid*(tex : Texture, posx, posy : int, tilesize : int, t
 func drawTexFromGrid*(tex : Texture, posx, posy : int, tilesize : int, tint : Color) =
     DrawTexture(tex, int posx * tilesize, int posy * tilesize, tint)
 
-iterator spsplit*(s : string, key : char | string) : string =
+iterator spsplit*(s : string, key : char | string) : string = ## deprecated, not sure how this differs from strutils split iterator
     var result : string
     for c in s:
-        if key in result & $c:
+        result &= c
+        if key in result:
             yield result 
             result = ""
-        else:
-            if c == ' ':
-                result &= " " 
-            else: result &= c
     yield result
 
 func DrawCircle*(centerX : float, centerY : float, radius : float, tint : Color) =

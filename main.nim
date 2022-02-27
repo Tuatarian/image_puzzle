@@ -1,4 +1,4 @@
-import raylib, raymath, rlgl, rayutils, math, lenientops, random, sequtils, os, algorithm
+import raylib, rayutils, lenientops, random, sequtils, os, algorithm, strutils, strformat, std/enumerate
 
 const
     screenWidth = 1920
@@ -14,7 +14,7 @@ InitAudioDevice()
 SetMasterVolume 1
 
 let
-    musicArr = [LoadMusicStream "./assets/Into the Gray.mp3", LoadMusicStream "./assets/Prisoner of Rock N Roll.mp3", LoadMusicStream "./assets/Shuffle Street.mp3"]
+    musicArr = [LoadSound "./assets/Into the Gray.mp3", LoadSound "./assets/Prisoner of Rock N Roll.mp3", LoadSound "./assets/Shuffle Street.mp3"]
     folders = toSeq(walkDir("assets", relative=true)).filterIt(it.kind == pcDir)
 
 proc LoadImgs(folder : string) : seq[Texture] = toSeq(folder.walkDir(relative = true)).mapIt("assets/classic/" & it.path).filterIt(it[^4..^1] == ".png").sorted(Ascending).mapIt(LoadTexture it)
@@ -96,19 +96,18 @@ var
     musicid = -1
     waiting = true
     waittime : int
+    imgtxt : seq[string]
 
 while not WindowShouldClose():
     ClearBackground BGREY
 
-    if not musicArr.mapIt(IsMusicPlaying it).foldl(a or b):
-        musicArr.iterIt StopMusicStream it
+    if not musicArr.mapIt(IsSoundPlaying it).foldl(a or b):
+        musicArr.iterIt StopSound it
         var inx = rand(musicArr.len - 1)
         while inx == musicid:
             inx = rand(musicArr.len - 1)
-            PlayMusicStream musicArr[inx]
+            PlaySound musicArr[inx]
             musicid = inx
-
-    musicArr.iterIt(UpdateMusicStream it)
 
     if fsScreen:
         BeginDrawing()
@@ -124,6 +123,13 @@ while not WindowShouldClose():
                 DrawRectangle(60, 120 + i*60, screenWidth - 120, 60, makecolor(WHITED.colHex(), 50))
                 if clicked: 
                     imgarr = LoadImgs "assets/" & folders[i].path
+                    let thepath = &"assets/{folders[i].path}"
+                    echo thepath
+                    echo toSeq(walkDir(thepath, relative=true))
+                    imgtxt = toSeq(walkDir(thepath, relative=true)).mapIt(it.path)
+                            .filterIt(it[^5..^1] == ".imdat")[0]
+                            .readLines(3)
+                    echo "done"
                     fsScreen = false
             if i mod 2 == 0:
                 if not moused: DrawRectangle(60, 120 + i*60, screenWidth - 120, 60, AGREY)
@@ -134,6 +140,7 @@ while not WindowShouldClose():
             imgid = 0
             isSolved = false
             shown = false
+            showntimer = 0
             image = imgarr[imgid]
             imgidban.add imgid
             solved = splitImage image
@@ -183,17 +190,11 @@ while not WindowShouldClose():
 
         # --- TEXT --- #
 
-        if not shown:
-            drawTextCenteredX "Preview of image", screenWidth div 2, 100, 70, WHITE
+        if shown:
+            for inx, s in enumerate imgtxt[imgid].split("&!&"):
+                drawTextCenteredX $s, screenWidth div 2, 100 + 50*inx, 70, WHITE
         else:
-            if imgid == 0:
-                drawTextCenteredX "John Brown, Antislavery crusader", screenWidth div 2, 100, 40, WHITE
-                drawTextCenteredX "This painting is part of the Tragic Prelude in Topeka,", screenWidth div 2, 150, 40, WHITE
-            if imgid == 1:
-                drawTextCenteredX "CKA3LA CTANA BBINBIO", screenWidth div 2, 100, 40, WHITE
-                drawTextCenteredX "The Fairtytale Became Truth (Yuri Gagarin)", screenWidth div 2, 150, 40, WHITE
-            if imgid == 2:
-                drawTextCenteredX "Ordem e Progresso", screenWidth div 2, 100, 40, WHITE
+            drawTextCenteredX "Preview of image", screenWidth div 2, 100, 70, WHITE
         if isSolved:
             drawTextCenteredX "Congratualations!", screenWidth div 2, screenHeight - 160, 50, WHITE
             drawTextCenteredX "Press Space to continue", screenWidth div 2, screenHeight - 100, 50, WHITE
