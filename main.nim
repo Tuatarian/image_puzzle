@@ -1,4 +1,4 @@
-import raylib, rayutils, lenientops, random, sequtils, os, algorithm, strutils, strformat, std/enumerate
+import raylib, rayutils, lenientops, random, sequtils, os, algorithm, strutils, strformat, sugar
 
 const
     screenWidth = 1920
@@ -14,7 +14,7 @@ InitAudioDevice()
 SetMasterVolume 1
 
 let
-    musicArr = [LoadSound "./assets/Into the Gray.mp3", LoadSound "./assets/Prisoner of Rock N Roll.mp3", LoadSound "./assets/Shuffle Street.mp3"]
+    musicArr = [LoadMusicStream "./assets/Into the Gray.mp3", LoadMusicStream "./assets/Prisoner of Rock N Roll.mp3", LoadMusicStream "./assets/Shuffle Street.mp3"]
     folders = toSeq(walkDir("assets", relative=true)).filterIt(it.kind == pcDir)
 
 proc LoadImgs(folder : string) : seq[Texture] = toSeq(folder.walkDir(relative = true)).mapIt("assets/classic/" & it.path).filterIt(it[^4..^1] == ".png").sorted(Ascending).mapIt(LoadTexture it)
@@ -101,13 +101,13 @@ var
 while not WindowShouldClose():
     ClearBackground BGREY
 
-    if not musicArr.mapIt(IsSoundPlaying it).foldl(a or b):
-        musicArr.iterIt StopSound it
-        var inx = rand(musicArr.len - 1)
+    if not musicArr.mapIt(IsMusicPlaying it).foldl(a or b):
+        var inx = musicid
         while inx == musicid:
             inx = rand(musicArr.len - 1)
-            PlaySound musicArr[inx]
-            musicid = inx
+        PlayMusicStream musicArr[inx]
+        musicid = inx
+    else: UpdateMusicStream musicArr[musicid]
 
     if fsScreen:
         BeginDrawing()
@@ -118,18 +118,16 @@ while not WindowShouldClose():
             clicked = IsMouseButtonPressed(MOUSE_LEFT_BUTTON)
 
         for i in 0..<min(folders.len, (screenHeight - 180) div 60):
-            let moused = mpos.in(makevec2(60, 120 + i*60), makevec2(screenWidth - 120, 120 + i*60), makevec2(screenWidth - 120, 120 + (i+1)*60), makevec2(60, 120 + (i+1)*60))
-            if moused: 
+            let moused = mpos.in(makerect(makevec2(60, 120 + i*60), makevec2(screenWidth - 120, 120 + i*60), makevec2(screenWidth - 120, 120 + (i+1)*60), makevec2(60, 120 + (i+1)*60)))
+            if moused:
                 DrawRectangle(60, 120 + i*60, screenWidth - 120, 60, makecolor(WHITED.colHex(), 50))
                 if clicked: 
                     imgarr = LoadImgs "assets/" & folders[i].path
                     let thepath = &"assets/{folders[i].path}"
-                    echo thepath
-                    echo toSeq(walkDir(thepath, relative=true))
-                    imgtxt = toSeq(walkDir(thepath, relative=true)).mapIt(it.path)
-                            .filterIt(it[^5..^1] == ".imdat")[0]
-                            .readLines(3)
-                    echo "done"
+                    let therealpath = (thepath & "/" & toSeq(walkDir(thepath, relative=true)).mapIt(it.path).filterIt(it == "imdat.txt")[0])
+                    echo thepath & "/" & toSeq(walkDir(thepath, relative=true)).mapIt(it.path).filterIt(it == "imdat.txt")[0]
+                    imgtxt = therealpath.readLines(toSeq(therealpath.lines).len)
+                    echo imgtxt
                     fsScreen = false
             if i mod 2 == 0:
                 if not moused: DrawRectangle(60, 120 + i*60, screenWidth - 120, 60, AGREY)
@@ -156,7 +154,7 @@ while not WindowShouldClose():
             drawTexCentered(image, makevec2(screenWidth / 2, screenHeight / 2), WHITE)
             let drawpos = makevec2(int(screenWidth / 2 - image.width / 2), int(screenHeight / 2 - image.height / 2))
             DrawRectangleLines(drawpos.x.int - 1, drawpos.y.int - 1, image.width + 2, image.height + 2, WHITE)
-            if showntimer >= 350:
+            if showntimer >= 150: ## this should be 350, lowered for debugging
                 shown = true
                 showntimer = 0
             elif not waiting and not shown: showntimer += 1
@@ -191,8 +189,11 @@ while not WindowShouldClose():
         # --- TEXT --- #
 
         if shown:
-            for inx, s in enumerate imgtxt[imgid].split("&!&"):
-                drawTextCenteredX $s, screenWidth div 2, 100 + 50*inx, 70, WHITE
+            var inx = 0
+            for s in imgtxt[imgid].split("&!&"):
+                drawTextCenteredX s, screenWidth div 2, 50 + 60*inx, 60, WHITE
+                inx += 1
+            inx += 0
         else:
             drawTextCenteredX "Preview of image", screenWidth div 2, 100, 70, WHITE
         if isSolved:
