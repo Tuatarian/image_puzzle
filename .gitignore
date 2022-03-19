@@ -1,2 +1,3 @@
 *.exe
 greybox.nim
+./.vscode
