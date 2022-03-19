@@ -11,7 +11,7 @@ SetTargetFPS 60
 randomize()
 
 InitAudioDevice()
-SetMasterVolume 1
+SetMasterVolume 0
 
 let
     musicArr = [LoadMusicStream "./assets/Into the Gray.mp3", LoadMusicStream "./assets/Prisoner of Rock N Roll.mp3", LoadMusicStream "./assets/Shuffle Street.mp3"]
@@ -87,6 +87,7 @@ proc drawRecArray(t : Texture, s : seq[Rectangle], c : seq[Color]) =
 
 var 
     solved : seq[Rectangle]
+    pg : int
     mixed : seq[Rectangle]
     sqcols = newSeqWith(mixed.len, WHITE)
     held = -1
@@ -113,25 +114,44 @@ while not WindowShouldClose():
         BeginDrawing()
 
         drawTextCenteredX("Select Image Set", screenCenter.x.int, 60, 50, WHITEE)
+
         let
             mpos = GetMousePosition()
             clicked = IsMouseButtonPressed(MOUSE_LEFT_BUTTON)
 
-        for i in 0..<min(folders.len, (screenHeight - 180) div 60):
-            let moused = mpos.in(makerect(makevec2(60, 120 + i*60), makevec2(screenWidth - 120, 120 + i*60), makevec2(screenWidth - 120, 120 + (i+1)*60), makevec2(60, 120 + (i+1)*60)))
+        for i in pg*16..<min(folders.len, (screenHeight - 180) div 60): ## second term in min() has max of 16
+            let moused = mpos.in(makevec2(60, 120 + i*60), makevec2(screenWidth - 120, 120 + i*60), makevec2(screenWidth - 120, 120 + (i+1)*60), makevec2(60, 120 + (i+1)*60))
             if moused:
                 DrawRectangle(60, 120 + i*60, screenWidth - 120, 60, makecolor(WHITED.colHex(), 50))
                 if clicked: 
                     imgarr = LoadImgs "assets/" & folders[i].path
                     let thepath = &"assets/{folders[i].path}"
                     let therealpath = (thepath & "/" & toSeq(walkDir(thepath, relative=true)).mapIt(it.path).filterIt(it == "imdat.txt")[0])
-                    echo thepath & "/" & toSeq(walkDir(thepath, relative=true)).mapIt(it.path).filterIt(it == "imdat.txt")[0]
                     imgtxt = therealpath.readLines(toSeq(therealpath.lines).len)
-                    echo imgtxt
                     fsScreen = false
-            if i mod 2 == 0:
-                if not moused: DrawRectangle(60, 120 + i*60, screenWidth - 120, 60, AGREY)
-                drawTextCentered(folders[i].path, screenCenter.x.int, 120 + i*60 + 30, 40, WHITEE)
+            else: 
+                DrawRectangle(60, 120 + i*60, screenWidth - 120, 60, AGREY)
+            drawTextCentered(folders[i].path, screenCenter.x.int, 120 + i*60 + 30, 40, WHITEE)
+
+        
+        if mpos in makerect(1555, 890, 335, 145):
+            DrawRectangle 1555, 890, 335, 145, makecolor(WHITED.colhex(), 50)
+            if clicked: 
+                if pg + 1 <= folders.len div 16: pg += 1
+        else:
+            DrawRectangle(1555, 890, 335, 145, AGREY)
+            DrawRectangleLines(1555, 890, 335, 145, WHITEE)
+        drawTextCentered("Next ->", 1555 + 335 div 2, 890 + 145 div 2, 40, WHITEE)
+
+        if mpos in makerect(35, 850, 335, 185):
+            DrawRectangle 35, 890, 335, 145, makecolor(WHITED.colhex(), 50)
+            if clicked: 
+                if pg - 1 >= 0: pg += -1
+        else:
+            DrawRectangle(35, 890, 335, 145, AGREY)
+            DrawRectangleLines(35, 890, 335, 145, WHITEE)
+        drawTextCentered("<- Prev", 35 + 335 div 2, 890 + 145 div 2, 40, WHITEE)
+
 
         EndDrawing()
         if not fsScreen:
