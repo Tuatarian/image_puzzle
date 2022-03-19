@@ -145,15 +145,15 @@ func `&>`*(v : Vector2, v2 : Vector2) : bool = ## True if both x and y > x2 and 
     return v.x > v2.x and v.y > v2.y
 
 func drawTextCentered*(s : string, x, y, fsize : int, colour : Color) =
-    let tSizeVec = MeasureTextEx(GetFontDefault(), s, float fsize, max(20 ,fsize ) / 20) div 2 # max(20, fsize) is black box to me
+    let tSizeVec = MeasureTextEx(GetFontDefault(), s, float fsize, max(20 ,fsize) / 20) div 2 # max(20, fsize) is black box to me
     DrawText s, x - tSizeVec.x.int, y - tSizeVec.y.int, fsize, colour
 
 func drawTextCenteredX*(s : string, x, y, fsize : int, colour : Color) =
-    let tSizeVec = MeasureTextEx(GetFontDefault(), s, float fsize, max(20,fsize) / 10) div 2
+    let tSizeVec = MeasureTextEx(GetFontDefault(), s, float fsize, max(20,fsize) / 10) div 2  # max(20, fsize) is black box to me
     DrawText s, x - tSizeVec.x.int, y, fsize, colour
 
 func drawTextCenteredY*(s : string, x, y, fsize : int, colour : Color) =
-    let tSizeVec = MeasureTextEx(GetFontDefault(), s, float fsize, max(20 ,fsize ) / 20) div 2 # max(20, fsize) is black box to me
+    let tSizeVec = MeasureTextEx(GetFontDefault(), s, float fsize, max(20 ,fsize) / 20) div 2 # max(20, fsize) is black box to me
     DrawText s, x, y - tSizeVec.y.int, fsize, colour
 
 proc int2bin*(i : int) : int =
@@ -194,8 +194,7 @@ func `in`*(v : Vector2, tri : Triangle) : bool =
     return not (((d < 0) or (d2 < 0) or (d3 < 0)) and ((d > 0) or (d2 > 0) or (d3 > 0)))
 
 func `in`*(v : Vector2, v1, v2, v3, v4 : Vector2) : bool =
-    let vSeq = [v1, v2, v3, v4].sorted((x, y) => cmp[float](x.x, y.y), Ascending)
-    return v.in(vSeq[0], vSeq[1], vSeq[2]) or v.in(vSeq[1], vSeq[2], vSeq[3])
+    return v in makerect(v1, v2, v3, v4)
 
 proc UnloadTexture*(texargs : varargs[Texture]) = ## runs UnloadTexture for each vararg
     texargs.iterIt(UnloadTexture it)
@@ -455,7 +454,3 @@ proc DrawTriangle*(t : Triangle, col : Color) =
 #     for i in 0..<pts.len:
 #         var bad : seq[Triangle]
 #         # for j in 0..<result.len:
-
-            
-
-
