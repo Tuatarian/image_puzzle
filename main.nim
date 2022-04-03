@@ -1,4 +1,4 @@
-import raylib, rayutils, lenientops, random, sequtils, os, algorithm, strutils, strformat, sugar
+import raylib, rayutils, lenientops, random, sequtils, os, algorithm, strutils, sugar
 
 const
     screenWidth = 1920
@@ -6,18 +6,20 @@ const
     screenCenter = makevec2(1920, 1080) / 2
 
 
-InitWindow screenWidth, screenHeight, "Puzzler"
+InitWindow screenWidth, screenHeight, "Some Puzzling Pictures"
 SetTargetFPS 60
 randomize()
 
 InitAudioDevice()
-SetMasterVolume 0
+SetMasterVolume 0.5
 
 let
-    musicArr = [LoadMusicStream "./assets/Into the Gray.mp3", LoadMusicStream "./assets/Prisoner of Rock N Roll.mp3", LoadMusicStream "./assets/Shuffle Street.mp3"]
-    folders = toSeq(walkDir("assets", relative=true)).filterIt(it.kind == pcDir)
+    folders = toSeq(walkDir("assets")).mapIt(it.path).filterIt(dirExists(it) and fileExists(it & "\\imdat.txt"))
+    musicArr = toSeq(walkDir("assets/music")).mapIt(it.path).filterIt(it.endsWith ".mp3").mapIt(LoadMusicStream $$it)
+    isMusic = musicArr.len > 0
+    volIcon = LoadTexture $$"assets/volume.png"
 
-proc LoadImgs(folder : string) : seq[Texture] = toSeq(folder.walkDir(relative = true)).mapIt("assets/classic/" & it.path).filterIt(it[^4..^1] == ".png").sorted(Ascending).mapIt(LoadTexture it)
+proc LoadImgs(folder : string) : seq[Texture] = toSeq(folder.walkDir()).mapIt(it.path).filterIt(it[^4..^1] == ".png").sorted(Ascending).mapIt(LoadTexture $$it)
 
 var
     imgarr = LoadImgs "assets/classic"
@@ -25,6 +27,9 @@ var
     image = imgarr[imgid]
     imgidban = @[imgid]
     fsScreen = true
+    sliderRect = makerect(screenWidth - 400, screenHeight - 70, 340, 20)
+    volLvl = 0.5
+    adjVol : bool
 
 proc splitImage(t : Texture, x : int = 8, y : int = 5) : seq[Rectangle] = ## 8x5 is generally reasonable
     let drawpos = makevec2(0, 0)
@@ -102,36 +107,39 @@ var
 while not WindowShouldClose():
     ClearBackground BGREY
 
-    if not musicArr.mapIt(IsMusicPlaying it).foldl(a or b):
-        var inx = musicid
-        while inx == musicid:
-            inx = rand(musicArr.len - 1)
-        PlayMusicStream musicArr[inx]
-        musicid = inx
-    else: UpdateMusicStream musicArr[musicid]
+    if isMusic:
+        if not musicArr.mapIt(IsMusicPlaying it).foldl(a or b):
+            var inx = musicid
+            while inx == musicid:
+                inx = rand(musicArr.len - 1)
+            PlayMusicStream musicArr[inx]
+            musicid = inx
+        else: UpdateMusicStream musicArr[musicid]
+
+    # --- FILE SELECT --- #
+    let
+        mpos = GetMousePosition()
+        clicked = IsMouseButtonPressed(MOUSE_LEFT_BUTTON)
 
     if fsScreen:
         BeginDrawing()
 
         drawTextCenteredX("Select Image Set", screenCenter.x.int, 60, 50, WHITEE)
 
-        let
-            mpos = GetMousePosition()
-            clicked = IsMouseButtonPressed(MOUSE_LEFT_BUTTON)
-
-        for i in pg*16..<min(folders.len, (screenHeight - 180) div 60): ## second term in min() has max of 16
+        for i in pg*16..<min(folders.len, (screenHeight - 180) div 60): ## second term min() has max of 16
             let moused = mpos.in(makevec2(60, 120 + i*60), makevec2(screenWidth - 120, 120 + i*60), makevec2(screenWidth - 120, 120 + (i+1)*60), makevec2(60, 120 + (i+1)*60))
             if moused:
                 DrawRectangle(60, 120 + i*60, screenWidth - 120, 60, makecolor(WHITED.colHex(), 50))
                 if clicked: 
-                    imgarr = LoadImgs "assets/" & folders[i].path
-                    let thepath = &"assets/{folders[i].path}"
-                    let therealpath = (thepath & "/" & toSeq(walkDir(thepath, relative=true)).mapIt(it.path).filterIt(it == "imdat.txt")[0])
+                    echo folders[i]
+                    imgarr = LoadImgs folders[i]
+                    let therealpath = (toSeq(walkDir(folders[i])).mapIt(it.path).filterIt(it.endsWith "imdat.txt")[0])
+                    echo therealpath
                     imgtxt = therealpath.readLines(toSeq(therealpath.lines).len)
                     fsScreen = false
             else: 
                 DrawRectangle(60, 120 + i*60, screenWidth - 120, 60, AGREY)
-            drawTextCentered(folders[i].path, screenCenter.x.int, 120 + i*60 + 30, 40, WHITEE)
+            drawTextCentered(folders[i].split("\\")[^1], screenCenter.x.int, 120 + i*60 + 30, 40, WHITEE)
 
         
         if mpos in makerect(1555, 890, 335, 145):
@@ -174,7 +182,7 @@ while not WindowShouldClose():
             drawTexCentered(image, makevec2(screenWidth / 2, screenHeight / 2), WHITE)
             let drawpos = makevec2(int(screenWidth / 2 - image.width / 2), int(screenHeight / 2 - image.height / 2))
             DrawRectangleLines(drawpos.x.int - 1, drawpos.y.int - 1, image.width + 2, image.height + 2, WHITE)
-            if showntimer >= 150: ## this should be 350, lowered for debugging
+            if showntimer >= 350: ## this should be 350, lowered for debugging
                 shown = true
                 showntimer = 0
             elif not waiting and not shown: showntimer += 1
@@ -206,6 +214,21 @@ while not WindowShouldClose():
                     sqcols[held] = WHITE
                     held = -1
 
+        # --- VOLUME SLIDER --- #
+
+        DrawRectangleGradientEx(sliderRect, AGREY, AGREY, AGREY, AGREY)
+        # DrawRectangleLinesEx(sliderRect, 1, WHITEE)
+        DrawCircle(int(volLvl * sliderRect.width + sliderRect.x), int sliderRect.y + sliderRect.height.int div 2, 14, WHITEE)
+        
+        
+        if not fsScreen and IsMouseButtonDown(MOUSE_LEFT_BUTTON) and mpos in sliderRect:
+            adjVol = true
+        if adjVol:
+            volLvl = clamp((mpos.x - sliderRect.x) / sliderRect.width, 0, 1)
+            SetMasterVolume volLvl
+            if not IsMouseButtonDown(MOUSE_LEFT_BUTTON):
+                adjVol = false
+
         # --- TEXT --- #
 
         if shown:
@@ -227,5 +250,7 @@ while not WindowShouldClose():
             else:
                 DrawRectangle(0, 0, screenWidth, screenHeight, makecolor(BGREY.r, BGREY.g, BGREY.b, uint8 255 - waittime))
                 waittime += 1
+        
+        drawTexCenteredEx(volIcon, makevec2(sliderRect.x - 50, sliderRect.y + sliderRect.height/2), 0, 0.25, makecolor "333333")
         EndDrawing()
 CloseWindow()
