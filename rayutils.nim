@@ -1,4 +1,4 @@
-import raylib, math, hashes, sugar, macros, strutils, lenientops, sequtils, algorithm, random
+import raylib, math, hashes, sugar, macros, strutils, lenientops, algorithm, random, os
 
 randomize()
 
@@ -144,6 +144,8 @@ func `&>`*(v : Vector2, n : float32 | int | float) : bool = ## True if both x an
 func `&>`*(v : Vector2, v2 : Vector2) : bool = ## True if both x and y > x2 and y2
     return v.x > v2.x and v.y > v2.y
 
+func `$$`*[T](t : T) : cstring = cstring t ## cast to cstring
+
 func drawTextCentered*(s : string, x, y, fsize : int, colour : Color) =
     let tSizeVec = MeasureTextEx(GetFontDefault(), s, float fsize, max(20 ,fsize) / 20) div 2 # max(20, fsize) is black box to me
     DrawText s, x - tSizeVec.x.int, y - tSizeVec.y.int, fsize, colour
@@ -283,6 +285,12 @@ proc drawTexCentered*(tex : Texture, pos : Vector2, tint : Color) = ## Draws Tex
 
 proc drawTexCentered*(tex : Texture, posx, posy : int | float | float32, tint : Color) = ## Draws texture from center
     tex.DrawTexture(int posx + tex.width div 2, int posy + tex.height div 2, tint)
+
+proc drawTexCenteredEx*(tex : Texture, pos : Vector2, rotation : float, scale : float, tint : Color) = ## Draws Texture from center
+    tex.DrawTextureEx(makevec2(int pos.x - tex.width * scale / 2, int pos.y - tex.height * scale / 2), rotation, scale, tint)
+
+proc drawTexCenteredEx*(tex : Texture, posx, posy : int | float | float32, rotation : float, scale : float, tint : Color) = ## Draws Texture from center
+    tex.DrawTextureEx(makevec2(int posx - tex.width * scale / 2, int posy - tex.height * scale / 2), rotation, scale, tint)
 
 func reflect*(i, tp : int | float) : int | float = ## Flips value over tp
     return tp * 2 - i
@@ -449,7 +457,7 @@ iterator findAll*[T](s : openArray[T], pred : (T) -> bool) : int =
 proc DrawTriangle*(t : Triangle, col : Color) =
     DrawTriangle(t.v1, t.v2, t.v3, col)    
 
-# func delaunayBW*(pts : seq[Vector2], super : Triangle) : seq[Triangle] = ##Bowyer-Watson implementation, O(n^2), super = super triangle containing all points in pts
+# func delaunayBW*(pts : seq[Vector2], super : Triangle) : seq[Triangle] = ##Bowyer-Watson implementation, super = super triangle containing all points in pts, O(n^2)
 #     result.add super
 #     for i in 0..<pts.len:
 #         var bad : seq[Triangle]
