@@ -1,4 +1,4 @@
-import raylib, rayutils, lenientops, random, sequtils, os, algorithm, strutils, sugar
+import raylib, rayutils, lenientops, random, sequtils, os, algorithm, strutils
 
 const
     screenWidth = 1920
@@ -14,7 +14,7 @@ InitAudioDevice()
 SetMasterVolume 0.5
 
 let
-    folders = toSeq(walkDir("assets")).mapIt(it.path).filterIt(dirExists(it) and fileExists(it & "\\imdat.txt"))
+    folders = toSeq(walkDir("assets/sets")).mapIt(it.path).filterIt(dirExists(it) and fileExists(it & "\\imdat.txt"))
     musicArr = toSeq(walkDir("assets/music")).mapIt(it.path).filterIt(it.endsWith ".mp3").mapIt(LoadMusicStream $$it)
     isMusic = musicArr.len > 0
     volIcon = LoadTexture $$"assets/volume.png"
@@ -22,9 +22,9 @@ let
 proc LoadImgs(folder : string) : seq[Texture] = toSeq(folder.walkDir()).mapIt(it.path).filterIt(it[^4..^1] == ".png").sorted(Ascending).mapIt(LoadTexture $$it)
 
 var
-    imgarr = LoadImgs "assets/classic"
-    imgid = 2
-    image = imgarr[imgid]
+    imgarr : seq[Texture]
+    imgid : int
+    image : Texture
     imgidban = @[imgid]
     fsScreen = true
     sliderRect = makerect(screenWidth - 400, screenHeight - 70, 340, 20)
@@ -37,8 +37,12 @@ proc splitImage(t : Texture, x : int = 8, y : int = 5) : seq[Rectangle] = ## 8x5
 
     let sqy = int(t.height / y)
     let sqx = int(t.width / x)
-    let marginy = t.height mod sqy.int
-    let marginx = t.width mod sqx.int 
+    var marginy : int
+    var marginx : int
+    if sqy != 0: marginy = t.height mod sqy
+    else: marginy = 1
+    if sqy != 0: marginx = t.width mod sqx
+    else: marginx = 1
     var loc = drawpos
     while loc.x < drawpos.x + t.width:
         if loc.x + sqx + marginx < drawpos.x + t.width:
@@ -108,7 +112,7 @@ while not WindowShouldClose():
     ClearBackground BGREY
 
     if isMusic:
-        if not musicArr.mapIt(IsMusicPlaying it).foldl(a or b):
+        if not musicArr.mapIt(IsMusicStreamPlaying it).foldl(a or b):
             var inx = musicid
             while inx == musicid:
                 inx = rand(musicArr.len - 1)
@@ -131,10 +135,8 @@ while not WindowShouldClose():
             if moused:
                 DrawRectangle(60, 120 + i*60, screenWidth - 120, 60, makecolor(WHITED.colHex(), 50))
                 if clicked: 
-                    echo folders[i]
                     imgarr = LoadImgs folders[i]
                     let therealpath = (toSeq(walkDir(folders[i])).mapIt(it.path).filterIt(it.endsWith "imdat.txt")[0])
-                    echo therealpath
                     imgtxt = therealpath.readLines(toSeq(therealpath.lines).len)
                     fsScreen = false
             else: 
