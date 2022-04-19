@@ -1,0 +1,7 @@
+Invoke-WebRequest -Uri "tuatarian.app/sets/fname.txt" -OutFile "assets/sets/fname.txt"
+$fname = Get-Content "assets/sets/fname.txt"
+rm -Recurse "assets/sets/fname.txt"
+Invoke-WebRequest -Uri "tuatarian.app/sets/$fname.zip" -OutFile "assets/sets/$fname.zip"
+rm -Recurse "assets/sets/$fname"
+Expand-Archive "assets/sets/$fname.zip" "assets/sets/$fname"
+rm -Recurse "assets/sets/$fname.zip"
